@@ -1,0 +1,7 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),E=require('../engine.js');
+const lists=[{id:'a',title:'A',participants:[{id:'1',name:'One'},{id:'2',name:'Two'}]},{id:'b',title:'B',participants:[{id:'3',name:'Three'}]}];
+test('draw removes winners by identifier without changing source lists',()=>{const s={listIds:['a','b'],cursor:0,results:[]};for(let i=0;i<3;i++){const p=E.choose(lists,s,'equal');assert.ok(p);assert.ok(!s.results.some(r=>r.id===p.person.id));s.results.push(p.person);}assert.equal(E.choose(lists,s,'equal'),null);assert.equal(lists[0].participants.length,2);});
+test('round robin skips exhausted lists and preserves order',()=>{const s={listIds:['a','b'],cursor:0,results:[]};for(const id of ['a','b','a']){const p=E.choose(lists,s,'round');assert.equal(p.person.listId,id);s.results.push(p.person);s.cursor=p.nextCursor;}assert.equal(E.eligible(lists,s).length,0);});
+test('duplicate identifiers in merged lists have one chance',()=>{assert.equal(E.eligible([...lists,{id:'c',participants:[{id:'1',name:'One'}]}],{listIds:['a','c'],results:[]}).length,2);});
+test('invalid random pool rejected',()=>{for(const n of [0,-1,1.5])assert.throws(()=>E.randomIndex(n));assert.equal(E.randomIndex(1),0);});
+test('school seed has 1021 unique identifiers in 29 lists',()=>{const d=require('../rosters.json');assert.equal(d.lists.length,29);const ps=d.lists.flatMap(l=>l.participants);assert.equal(ps.length,1021);assert.equal(new Set(ps.map(p=>p.id)).size,1021);});
