@@ -1,12 +1,16 @@
 'use strict';
 const $=id=>document.getElementById(id),E=QuraaEngine,KEY='quraa-school-v1',esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const defaults={theme:'purple',sound:'spark',volume:45,duration:3200,motion:false,confetti:true};
-const seed=QURAA_ROSTERS.lists.map(l=>({...l,kind:'student'}));
+const seed=[...QURAA_ROSTERS.lists.map(l=>({...l,kind:'student'})),...(window.QURAA_TEACHERS||[]).map(l=>({...l,kind:'teacher'}))];
 let state={version:1,lists:structuredClone(seed),sessions:[],settings:{...defaults},currentId:null},busy=false,audio=null;
 function valid(s){return s&&s.version===1&&Array.isArray(s.lists)&&s.lists.length<=1000&&new Set(s.lists.map(l=>l.id)).size===s.lists.length&&s.lists.every(l=>typeof l.id==='string'&&typeof l.title==='string'&&['student','teacher'].includes(l.kind)&&Array.isArray(l.participants)&&l.participants.length<=5000&&new Set(l.participants.map(p=>p.id)).size===l.participants.length&&l.participants.every(p=>typeof p.id==='string'&&typeof p.name==='string'&&p.name.length>0))&&Array.isArray(s.sessions)&&s.sessions.every(x=>typeof x.id==='string'&&typeof x.title==='string'&&Array.isArray(x.listIds)&&Number.isInteger(x.cursor)&&x.cursor>=0&&Array.isArray(x.results)&&x.results.every(r=>typeof r.id==='string'&&typeof r.name==='string'&&typeof r.at==='string'))&&s.settings&&typeof s.settings==='object';}
 function notify(t){$('toast').textContent=t;$('toast').classList.add('show');clearTimeout(notify.timer);notify.timer=setTimeout(()=>$('toast').classList.remove('show'),3500);}
 try{const saved=JSON.parse(localStorage.getItem(KEY));if(saved){if(!valid(saved))throw Error();state=saved;state.settings={...defaults,...state.settings};}}catch{notify('تعذر قراءة الحفظ السابق؛ استُخدمت القوائم الأصلية.');}
 function persist(){try{localStorage.setItem(KEY,JSON.stringify(state));return true;}catch{notify('تعذر الحفظ؛ نزّلي نسخة احتياطية قبل إغلاق الصفحة.');return false;}}
+// Add bundled teacher lists once, preserving existing browser lists and sessions.
+let addedTeacherLists=false;
+for(const list of seed.filter(l=>l.kind==='teacher')){if(!state.lists.some(l=>l.id===list.id)){state.lists.push(structuredClone(list));addedTeacherLists=true;}}
+if(addedTeacherLists)persist();
 function session(){return state.sessions.find(s=>s.id===state.currentId);}
 function fresh(ids=[],title=$('sessionTitle').value.trim()||'قرعة جديدة'){const s={id:crypto.randomUUID(),title,listIds:ids,mode:$('mode').value,kind:$('kind').value,cursor:0,createdAt:new Date().toISOString(),results:[]};state.sessions.push(s);state.currentId=s.id;persist();return s;}
 if(!session())fresh();
